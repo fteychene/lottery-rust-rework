@@ -3,7 +3,6 @@ use std::clone::Clone;
 use std::fmt::Debug;
 use reqwest;
 
-use rocket::http::Status;
 use frunk::monoid::*;
 
 error_chain!{
@@ -13,12 +12,6 @@ error_chain!{
 
     errors {
         EventbriteAggregationError
-    }
-}
-
-pub fn http_status_for_error(error_kind: &ErrorKind) -> Status {
-    match error_kind {
-        _ => Status::InternalServerError
     }
 }
 

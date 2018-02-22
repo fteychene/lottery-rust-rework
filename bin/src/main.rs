@@ -6,14 +6,36 @@ extern crate rocket;
 extern crate frunk;
 extern crate lottery_eventbrite;
 extern crate rocket_contrib;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 #[macro_use] extern crate error_chain;
 
+mod eventbrite;
+
 use rocket_contrib::Json;
+use rocket::http::{ContentType, Status};
+use std::io::Cursor;
+use rocket::Response;
 
 use frunk::monoid::*;
 
 error_chain!{}
+
+#[derive(Serialize)]
+struct LotteryHttpError {
+    err: String
+}
+
+fn response_error<E>(error: &E, status: Status) -> ::std::result::Result<Response<'static>, Status> 
+where E: std::error::Error {
+    Response::build()
+        .header(ContentType::JSON)
+        .status(status)
+        .sized_body(Cursor::new(serde_json::to_string(&LotteryHttpError{err: String::from(error.description())}).unwrap()))
+        .ok()
+}
 
 #[derive(Serialize)]
 struct Health {
@@ -27,5 +49,5 @@ fn health() -> Result<Json<Health>> {
 }
 
 fn main() {
-    rocket::ignite().mount("/", combine_all(&vec!(routes![health], lottery_eventbrite::handlers()))).launch();
+    rocket::ignite().mount("/", combine_all(&vec!(routes![health], eventbrite::handlers()))).launch();
 }

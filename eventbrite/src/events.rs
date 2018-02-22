@@ -1,5 +1,4 @@
 use reqwest;
-use rocket::http::Status;
 
 error_chain!{
     errors { 
@@ -11,13 +10,6 @@ error_chain!{
 
     foreign_links {
         IoError(::reqwest::Error);
-    }
-}
-
-pub fn http_status_for_error(error_kind: &ErrorKind) -> Status {
-    match error_kind {
-        &ErrorKind::NoEventsAvailable => Status::BadRequest,
-        _ => Status::InternalServerError
     }
 }
 
