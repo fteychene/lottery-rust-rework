@@ -19,3 +19,4 @@ features = ["json"]
 
 [[bin]]
 name = "lottery"
+path = "src/main.rs"

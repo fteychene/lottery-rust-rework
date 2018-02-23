@@ -11,7 +11,7 @@ error_chain!{
     }
 
     errors {
-        EventbriteAggregationError
+        ResponseAggregationError
     }
 }
 
@@ -42,9 +42,12 @@ struct AttendeesResponse {
 
 fn sequence<R>(seq : Vec<Result<R>>) -> Result<Vec<R>> 
     where R: Clone + Debug {
-    let result = seq.iter().fold(Ok(vec![]), |result, current| match current {
-            &Ok(ref value) => result.map(|vec| { let mut x = vec.clone(); x.push(value.clone()); x }),
-            &Err(ref e) => Err(ErrorKind::EventbriteAggregationError.into())
+    let result = seq.into_iter().fold(Ok(vec![]), |result, current| match current {
+            Ok(value) => result.map(|vec| { let mut x = vec.clone(); x.push(value.clone()); x }),
+            Err(e) => {
+                eprintln!("Error detecting while sequencing : {}", e);
+                Err(e.chain_err(|| ErrorKind::ResponseAggregationError))
+            }
         }
     );
     result
@@ -64,9 +67,8 @@ pub fn get_attendees(event_id: &str, token: &str) -> Result<Vec<Profile>> {
             let range = Range{start: result.pagination.page_number, end: result.pagination.page_count};
             sequence(range.fold(vec![Ok(result)], |mut result, page|{result.push(load_attendees(event_id, token, page+1)); result}))
         })
-        .map(|results: Vec<AttendeesResponse>| results.iter().map(|response| response.attendees.clone()).collect())
-        .map(|results: Vec<Vec<Attende>>| combine_all(&results))
-        .map(|attendees: Vec<Attende>| attendees.into_iter().map(|attendee| attendee.profile).collect())
+        .map(|results: Vec<AttendeesResponse>| results.into_iter().map(|response| response.attendees.into_iter().map(|attendee| attendee.profile).collect()).collect())
+        .map(|results: Vec<Vec<Profile>>| combine_all(&results))
         .chain_err(|| "Error while calling EventBrite")
 }
 
@@ -80,13 +82,13 @@ mod tests {
         assert!(actual.is_ok());
         assert_eq!(actual.unwrap(), vec![1, 2, 3]);
 
-        let actual = sequence(vec![Ok(1), Ok(2), Err(ErrorKind::EventbriteAggregationError.into())]);
+        let actual = sequence(vec![Ok(1), Ok(2), Err(ErrorKind::ResponseAggregationError.into())]);
         assert!(actual.is_err());
 
-        let actual = sequence(vec![Ok(1), Err(ErrorKind::EventbriteAggregationError.into()), Ok(3)]);
+        let actual = sequence(vec![Ok(1), Err(ErrorKind::ResponseAggregationError.into()), Ok(3)]);
         assert!(actual.is_err());
 
-        let actual = sequence( vec![Err(ErrorKind::EventbriteAggregationError.into()), Ok(2), Ok(3)]);
+        let actual = sequence( vec![Err(ErrorKind::ResponseAggregationError.into()), Ok(2), Ok(3)]);
         assert!(actual.is_err());
     }
 
