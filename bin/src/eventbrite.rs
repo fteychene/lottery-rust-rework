@@ -65,13 +65,16 @@ fn load_current_attendees(organizer: &str, token: &str) -> Result<Vec<attendees:
     attendees::get_attendees(&current_event.id, token).chain_err(|| "error loading attendees")
 }
 
-pub fn cache_loop(attendees: &Mutex<Vec<attendees::Profile>>, organizer: &str, token: &str, timeout: u64) {
+pub fn cache_loop(attendees: &Mutex<Option<Vec<attendees::Profile>>>, organizer: &str, token: &str, timeout: u64) {
     loop {
         println!("Fetch last event and attendees from eventbrite");
 
         match load_current_attendees(organizer, token) {
-            Ok(current_attendees) => *attendees.lock().unwrap() = current_attendees,
-            Err(e) => eprintln!("Error on loading last event and attendees : {}", e)
+            Ok(current_attendees) => *attendees.lock().unwrap() = Some(current_attendees),
+            Err(e) => {
+                *attendees.lock().unwrap() = None;
+                eprintln!("Error on loading last event and attendees : {}", e);
+            }
         }
         
         thread::sleep(time::Duration::from_secs(timeout));
