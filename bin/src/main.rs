@@ -23,7 +23,7 @@ use std::io::Cursor;
 use rocket::{Response, State};
 use std::env;
 
-use std::sync::Mutex;
+use std::sync::RwLock;
 use frunk::monoid::combine_all;
 use lottery_eventbrite::attendees::Profile;
 use std::thread;
@@ -78,11 +78,11 @@ struct WinnerParams {
 #[get("/winners?<params>")]
 fn winners(
     params: WinnerParams,
-    state: State<&Mutex<Option<Vec<Profile>>>>,
+    state: State<&RwLock<Option<Vec<Profile>>>>,
 ) -> Result<Json<Vec<Profile>>> {
     let mut rng = thread_rng();
     state
-        .lock()
+        .read()
         .map_err(|e| {
             eprintln!("Error accessing cache : {}", e);
             ErrorKind::CacheError.into()
@@ -95,7 +95,7 @@ fn winners(
 }
 
 lazy_static! {
-    static ref ATTENDEES: Mutex<Option<Vec<Profile>>> = Mutex::new(None);
+    static ref ATTENDEES: RwLock<Option<Vec<Profile>>> = RwLock::new(None);
 }
 
 fn main() {
@@ -105,12 +105,12 @@ fn main() {
     thread::spawn(move || {
         eventbrite::cache_loop(&ATTENDEES, &organizer, &token, 3600)
     });
-    let attendees_ref: &Mutex<Option<Vec<Profile>>> = &ATTENDEES;
+    let attendees_ref: &RwLock<Option<Vec<Profile>>> = &ATTENDEES;
     rocket::ignite()
         .manage(attendees_ref)
         .mount(
             "/",
-            combine_all(&vec![routes![health, winners], eventbrite::handlers()]),
+            combine_all(&vec![routes![health, winners]]),
         )
         .launch();
 }
